@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Problem Solving Tracker</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    
+    <!-- Lucide Icons for UI elements -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <style>
+        /* Custom font and base styling */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        /* Custom scrollbar for a better look in dark mode */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        /* Animation for modals and notifications */
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        .fade-out {
+            animation: fadeOut 0.3s ease-in forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(0.95); }
+        }
+        .options-menu {
+            display: none;
+            position: absolute;
+            top: 2.5rem;
+            right: 0.5rem;
+            z-index: 10;
+        }
+        .options-menu.show {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200" onclick="app.closeAllMenus()">
+
+    <div id="app" class="flex flex-col h-screen">
+        <!-- Main Header -->
+        <header class="bg-slate-800/50 border-b border-slate-700 p-4 flex justify-between items-center sticky top-0 z-30 backdrop-blur-sm">
+            <div class="flex items-center gap-3">
+                <i data-lucide="brain-circuit" class="text-emerald-400"></i>
+                <h1 class="text-xl font-bold">Problem Solving Tracker</h1>
+            </div>
+            <div id="header-buttons" class="flex items-center gap-2">
+                 <button onclick="app.renderReportsScreen()" class="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-md text-sm">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Reports
+                </button>
+                <button onclick="app.exportData('json')" class="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-md text-sm">
+                    <i data-lucide="download" class="w-4 h-4"></i> Export JSON
+                </button>
+                <button onclick="app.exportData('csv')" class="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-md text-sm">
+                    <i data-lucide="download" class="w-4 h-4"></i> Export CSV
+                </button>
+                <button onclick="document.getElementById('import-file-input').click()" class="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-md text-sm">
+                    <i data-lucide="upload" class="w-4 h-4"></i> Import
+                </button>
+                <input type="file" id="import-file-input" class="hidden" accept=".json" onchange="app.importData(event)">
+            </div>
+        </header>
+
+        <main class="flex-grow p-4 md:p-8 overflow-y-auto">
+            <!-- Screen: Dashboard -->
+            <div id="dashboard-screen" class="screen">
+                <div class="flex justify-between items-center mb-6">
+    <div id="breadcrumb" class="flex items-center gap-2 text-slate-400"></div>
+    <span id="folder-stats" class="px-4 py-2 rounded-lg bg-emerald-900/60 text-emerald-300 font-semibold text-base shadow-md flex items-center gap-2">
+        <i data-lucide="activity" class="w-5 h-5"></i>
+        <!-- JS will fill in the text here -->
+    </span>
+</div>
+                <div class="flex items-center gap-4 mb-8">
+                    <button onclick="app.showNewFolderModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-md font-semibold">
+                        <i data-lucide="folder-plus" class="w-5 h-5"></i> New Folder
+                    </button>
+                    <button onclick="app.showNewSessionModal(null)" class="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 rounded-md font-semibold">
+                        <i data-lucide="zap" class="w-5 h-5"></i> Quick Session
+                    </button>
+                </div>
+                <div id="folder-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                    <!-- Folders and sessions will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Screen: Practice Session -->
+            <div id="session-screen" class="screen hidden"></div>
+
+            <!-- Screen: Performance Analysis -->
+            <div id="analysis-screen" class="screen hidden"></div>
+
+            <!-- Screen: Reports -->
+            <div id="reports-screen" class="screen hidden"></div>
+        </main>
+    </div>
+
+    <!-- Modal for New Folder/Session/Rename/Delete -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-black/70 z-40 hidden items-center justify-center fade-in" onclick="app.closeModal()">
+        <div id="modal-content" class="bg-slate-800 rounded-lg shadow-2xl w-full max-w-md m-4" onclick="event.stopPropagation()"></div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg translate-x-[120%] transition-transform duration-500"></div>
+
+    <script>
+
+        const folderColors = [
+    '#10b981', // emerald
+    '#6366f1', // indigo
+    '#f59e42', // orange
+    '#ef4444', // red
+    '#14b8a6', // teal
+    '#eab308', // yellow
+    '#8b5cf6', // violet
+                             ];
+        // Main application logic
+        const app = {
+            // --- STATE MANAGEMENT ---
+            state: {
+                currentScreen: 'dashboard-screen',
+                currentPath: [],
+                data: { folders: [], sessions: [] },
+                activeSession: null,
+                timerInterval: null,
+                questionStartTime: null,
+                reports: { chartInstance: null }
+            },
+
+            // --- INITIALIZATION ---
+            init() {
+                lucide.createIcons();
+                this.loadData();
+                document.addEventListener('keydown', this.handleKeyPress.bind(this));
+                this.renderDashboard();
+            },
+
+            // --- DATA PERSISTENCE ---
+            loadData() {
+                const savedData = localStorage.getItem('problemTrackerData');
+                if (savedData) {
+                    this.state.data = JSON.parse(savedData);
+                } else {
+                    this.state.data = {
+                        folders: [{ id: 1, name: 'Physics', parentId: null }, { id: 2, name: 'Chemistry', parentId: null }],
+                        sessions: []
+                    };
+                }
+            },
+
+            saveData() {
+                localStorage.setItem('problemTrackerData', JSON.stringify(this.state.data));
+            },
+
+            // --- NAVIGATION & SCREEN MANAGEMENT ---
+            showScreen(screenId) {
+                document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+                document.getElementById(screenId).classList.remove('hidden');
+                this.state.currentScreen = screenId;
+                const headerButtons = document.getElementById('header-buttons');
+                headerButtons.style.display = screenId === 'dashboard-screen' ? 'flex' : 'none';
+            },
+
+            navigateTo(folderId) {
+                this.state.currentPath = folderId === null ? [] : [...this.state.currentPath, folderId];
+                this.renderDashboard();
+            },
+
+            navigateBack(index) {
+                this.state.currentPath = this.state.currentPath.slice(0, index + 1);
+                this.renderDashboard();
+            },
+
+            // --- RENDERING ---
+            // ...existing code...
+// ...existing code...
+renderDashboard() {
+    this.showScreen('dashboard-screen');
+    const currentFolderId = this.state.currentPath.length > 0 ? this.state.currentPath[this.state.currentPath.length - 1] : null;
+
+    // Sort folders: latest created first (by id, assuming id = timestamp)
+    const folders = this.state.data.folders
+        .filter(f => f.parentId === currentFolderId)
+        .sort((a, b) => b.id - a.id);
+
+    // Sort sessions: latest date first
+    const sessions = this.state.data.sessions
+        .filter(s => s.folderId === currentFolderId)
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const grid = document.getElementById('folder-grid');
+    grid.innerHTML = '';
+
+    folders.forEach(folder => grid.insertAdjacentHTML('beforeend', this.renderFolderCard(folder)));
+    sessions.forEach(session => grid.insertAdjacentHTML('beforeend', this.renderSessionCard(session)));
+
+    if (currentFolderId !== null) {
+        const startSessionCard = `
+            <div class="bg-amber-500 p-4 rounded-lg cursor-pointer hover:bg-amber-400 transition-colors flex flex-col items-center justify-center text-center text-slate-900" onclick="app.showNewSessionModal(${currentFolderId})">
+                <i data-lucide="play-circle" class="w-16 h-16 mb-2"></i>
+                <span class="font-semibold">Start Session</span>
+                <span class="text-xs">in this folder</span>
+            </div>`;
+        grid.insertAdjacentHTML('beforeend', startSessionCard);
+    }
+    
+    if (grid.innerHTML === '') {
+        grid.innerHTML = `<p class="text-slate-500 col-span-full text-center mt-8">This folder is empty.</p>`;
+    }
+
+    this.renderBreadcrumb();
+
+    // show total questions practiced today in header
+    const todayCount = this.getTodayQuestionsCount();
+    const statsEl = document.getElementById('folder-stats');
+    if (statsEl) statsEl.textContent = `Today: ${todayCount} question${todayCount !== 1 ? 's' : ''}`;
+
+    lucide.createIcons();
+},
+// ...existing code...
+            
+            // ...existing code...
+renderFolderCard(folder) {
+    // Gather all sessions in this folder and its subfolders
+    function getAllSessions(folderId) {
+        const directSessions = app.state.data.sessions.filter(s => s.folderId === folderId);
+        const subfolders = app.state.data.folders.filter(f => f.parentId === folderId);
+        let allSessions = [...directSessions];
+        subfolders.forEach(sub => {
+            allSessions = allSessions.concat(getAllSessions(sub.id));
+        });
+        return allSessions;
+    }
+    const allSessions = getAllSessions(folder.id);
+
+    // Aggregate stats
+    const totalQuestions = allSessions.reduce((acc, s) => acc + s.log.length, 0);
+    const attempted = allSessions.reduce((acc, s) => acc + s.log.filter(q => q.result !== 'skipped').length, 0);
+    const right = allSessions.reduce((acc, s) => acc + s.log.filter(q => q.result === 'correct').length, 0);
+    const wrong = allSessions.reduce((acc, s) => acc + s.log.filter(q => q.result === 'wrong').length, 0);
+    const skipped = allSessions.reduce((acc, s) => acc + s.log.filter(q => q.result === 'skipped').length, 0);
+    const accuracy = attempted > 0 ? Math.round((right / attempted) * 100) : 0;
+
+    const folderSessions = allSessions.length;
+    return `
+        <div class="bg-slate-800 p-4 rounded-lg flex flex-col items-center justify-center text-center relative group">
+            <div class="absolute top-2 left-2 bg-slate-700/40 text-slate-200 text-xs px-2 py-1 rounded font-semibold">${totalQuestions} questions</div>
+            <div class="absolute top-2 right-2">
+                <button onclick="app.toggleOptionsMenu(event, 'folder', ${folder.id})" class="text-slate-500 hover:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i data-lucide="more-vertical" class="w-5 h-5"></i>
+                </button>
+                <div id="options-folder-${folder.id}" class="options-menu bg-slate-700 rounded-md shadow-lg py-1 w-28">
+                    <a href="#" onclick="app.showRenameModal('folder', ${folder.id}, '${folder.name}')" class="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-slate-600">Rename</a>
+                    <a href="#" onclick="app.showDeleteModal('folder', ${folder.id}, '${folder.name}')" class="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-slate-600 text-red-400">Delete</a>
+                </div>
+            </div>
+            <div class="cursor-pointer w-full h-full" onclick="app.navigateTo(${folder.id})">
+                <i data-lucide="folder" class="w-16 h-16 text-sky-400 mb-2 mx-auto"></i>
+                <span class="font-semibold truncate w-full block">${folder.name}</span>
+                <span class="text-xs text-slate-400">${folderSessions} sessions</span>
+                <div class="mt-2 flex flex-col items-center w-full">
+                    <span class="flex items-center justify-center text-xs gap-3">
+                        <span class="${accuracy >= 80 ? 'text-green-400' : accuracy >= 50 ? 'text-yellow-400' : 'text-red-400'} font-semibold">${accuracy}% accuracy</span>
+                        <span class="flex items-center gap-1 text-green-400"><span class="font-bold text-base">✓</span> ${right}</span>
+                        <span class="flex items-center gap-1 text-red-400"><i data-lucide="x" class="w-4 h-4"></i> ${wrong}</span>
+                        <span class="flex items-center gap-1 text-yellow-400"><i data-lucide="skip-forward" class="w-4 h-4"></i> ${skipped}</span>
+                    </span>
+                </div>
+            </div>
+        </div>`;
+},
+// ...existing code...
+renderSessionCard(session) {
+    const accuracy = session.log.filter(q => q.result !== 'skipped').length > 0 ? 
+        Math.round(session.log.filter(q => q.result === 'correct').length / session.log.filter(q => q.result !== 'skipped').length * 100) : 0;
+    const right = session.log.filter(q => q.result === 'correct').length;
+    const wrong = session.log.filter(q => q.result === 'wrong').length;
+    const skipped = session.log.filter(q => q.result === 'skipped').length;
+    return `
+        <div class="bg-slate-800 p-4 rounded-lg flex flex-col text-left relative group">
+            <div class="absolute top-2 right-2">
+                <button onclick="app.toggleOptionsMenu(event, 'session', ${session.id})" class="text-slate-500 hover:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i data-lucide="more-vertical" class="w-5 h-5"></i>
+                </button>
+                <div id="options-session-${session.id}" class="options-menu bg-slate-700 rounded-md shadow-lg py-1 w-28">
+                    <a href="#" onclick="app.showRenameModal('session', ${session.id}, '${session.name}')" class="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-slate-600">Rename</a>
+                    <a href="#" onclick="app.showDeleteModal('session', ${session.id}, '${session.name}')" class="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-slate-600 text-red-400">Delete</a>
+                </div>
+            </div>
+            <i data-lucide="file-text" class="w-10 h-10 text-slate-400 mb-3"></i>
+            <span class="font-semibold truncate w-full block">${session.name}</span>
+            <span class="text-xs text-slate-500 mb-2">${new Date(session.date).toLocaleDateString()}</span>
+            <div class="text-xs space-y-1 mt-auto">
+                <p>${session.log.length} questions</p>
+                <div class="flex items-center justify-between mt-1">
+                    <span class="${accuracy >= 80 ? 'text-green-400' : accuracy >= 50 ? 'text-yellow-400' : 'text-red-400'} font-semibold">${accuracy}% accuracy</span>
+                    <span class="flex items-center gap-2 ml-2">
+                        <span class="flex items-center gap-0.5 text-green-400"><span class="font-bold text-base">✓</span> ${right}</span>
+                        <span class="flex items-center gap-0.5 text-red-400"><i data-lucide="x" class="w-4 h-4"></i> ${wrong}</span>
+                        <span class="flex items-center gap-0.5 text-yellow-400"><i data-lucide="skip-forward" class="w-4 h-4"></i> ${skipped}</span>
+                    </span>
+                </div>
+            </div>
+        </div>`;
+},
+// ...existing code...
+
+            renderBreadcrumb() {
+                const breadcrumbEl = document.getElementById('breadcrumb');
+                let html = `<span class="cursor-pointer hover:text-emerald-400" onclick="app.navigateTo(null)">Home</span>`;
+                let path = [];
+                this.state.currentPath.forEach((folderId, index) => {
+                    const folder = this.state.data.folders.find(f => f.id === folderId);
+                    if (folder) {
+                        path.push(folder);
+                        html += `<i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+                                 <span class="cursor-pointer hover:text-emerald-400" onclick="app.navigateBack(${index})">${folder.name}</span>`;
+                    }
+                });
+                breadcrumbEl.innerHTML = html;
+                lucide.createIcons();
+            },
+            
+            // --- All other render functions (renderSessionScreen, renderAnalysisScreen, etc.) remain largely the same ---
+            // The following are stubs for brevity, the full implementation is in the previous version
+            renderSessionScreen() {
+                const session = this.state.activeSession;
+                if (!session) return;
+                this.showScreen('session-screen');
+
+                const screen = document.getElementById('session-screen');
+                const currentQ = session.log.length + 1;
+                const progress = (session.log.length / session.target) * 100;
+                const timerDisplay = this.formatTime(session.timer);
+                
+                let actionControls = '';
+                if (session.status === 'pending') {
+                    actionControls = `<button id="start-btn" onclick="app.startQuestion()" class="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-md text-lg font-semibold flex items-center gap-2">
+                                        <i data-lucide="play"></i> Start (Space)
+                                    </button>`;
+                } else if (session.status === 'running') {
+                    actionControls = `<button id="stop-btn" onclick="app.stopQuestion()" class="px-8 py-3 bg-red-600 hover:bg-red-500 rounded-md text-lg font-semibold flex items-center gap-2">
+                                        <i data-lucide="stop-circle"></i> Stop (Space)
+                                    </button>`;
+                } else if (session.status === 'paused') {
+                    actionControls = `<div class="flex flex-col items-center gap-4">
+                                        <p class="text-slate-400">How did you do with this problem?</p>
+                                        <div class="flex gap-4">
+                                            <button onclick="app.logResult('correct')" class="px-6 py-2 bg-green-600 hover:bg-green-500 rounded-md font-semibold flex items-center gap-2"><i data-lucide="check"></i> Right (R)</button>
+                                            <button onclick="app.logResult('wrong')" class="px-6 py-2 bg-red-600 hover:bg-red-500 rounded-md font-semibold flex items-center gap-2"><i data-lucide="x"></i> Wrong (W)</button>
+                                            <button onclick="app.logResult('skipped')" class="px-6 py-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 rounded-md font-semibold flex items-center gap-2"><i data-lucide="skip-forward"></i> Skip (L)</button>
+                                        </div>
+                                    </div>`;
+                }
+
+                screen.innerHTML = `
+                    <div class="max-w-2xl mx-auto">
+                        <div class="flex items-center gap-2 text-slate-400 mb-4">
+                            <i data-lucide="arrow-left" class="cursor-pointer" onclick="app.confirmEndSession()"></i>
+                            <span>${this.getFolderPathString()}</span>
+                        </div>
+                        <div class="bg-slate-800 p-8 rounded-lg shadow-xl">
+                            <div class="text-center">
+                                <h2 class="text-2xl font-bold">${session.name}</h2>
+                                <p class="text-slate-400 mb-4">Question ${currentQ} of ${session.target}</p>
+                                
+<div class="w-full bg-slate-700 rounded-full h-2.5 mb-6">
+    <div class="h-2.5 rounded-full"
+         style="
+            width: ${progress}%;
+            background: linear-gradient(90deg, #00fff7, #00ff85, #fffb00, #ff00c8, #00fff7);
+            box-shadow: 0 0 12px 2px #00fff7, 0 0 24px 4px #ff00c8;
+            transition: width 0.3s;
+         ">
+    </div>
+</div>
+
+                                <div class="text-7xl font-bold font-mono my-8">${timerDisplay}</div>
+                                <div class="flex items-center justify-center gap-4 mb-8">
+                                    ${actionControls}
+                                </div>
+                                <div class="flex items-center justify-center gap-4">
+                                    <input type="checkbox" id="end-session-checkbox" class="w-4 h-4 bg-slate-700 border-slate-600 rounded">
+                                    <label for="end-session-checkbox">End Session</label>
+                                </div>
+                            </div>
+                            <div class="mt-10">
+                                <h3 class="font-semibold text-lg mb-4">Session Log</h3>
+                                <div id="session-log-list" class="space-y-2">
+                                    ${this.renderSessionLog()}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                lucide.createIcons();
+            },
+            renderSessionLog() {
+                const session = this.state.activeSession;
+                if (!session || session.log.length === 0) return '<p class="text-slate-500 text-center">No questions logged yet.</p>';
+                
+                return session.log.map((entry, index) => {
+                    let statusClass = '';
+                    if (entry.result === 'correct') statusClass = 'bg-green-500/20 text-green-400';
+                    if (entry.result === 'wrong') statusClass = 'bg-red-500/20 text-red-400';
+                    if (entry.result === 'skipped') statusClass = 'bg-yellow-500/20 text-yellow-400';
+
+                    return `
+                        <div class="bg-slate-700/50 p-3 rounded-md flex justify-between items-center">
+                            <span class="font-semibold">Q${index + 1}</span>
+                            <span class="text-sm font-mono text-slate-400">${this.formatTime(entry.time, false)}</span>
+                            <span class="text-xs font-bold px-2 py-1 rounded-full ${statusClass}">${entry.result.toUpperCase()}</span>
+                        </div>
+                    `;
+                }).join('');
+            },
+            renderAnalysisScreen() {
+                this.showScreen('analysis-screen');
+                const session = this.state.activeSession;
+                const screen = document.getElementById('analysis-screen');
+
+                const totalQuestions = session.log.length;
+                const attempted = session.log.filter(q => q.result !== 'skipped').length;
+                const correct = session.log.filter(q => q.result === 'correct').length;
+                const wrong = session.log.filter(q => q.result === 'wrong').length;
+                const skipped = session.log.filter(q => q.result === 'skipped').length;
+                
+                const totalTime = session.log.reduce((acc, q) => acc + q.time, 0);
+                const accuracy = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
+                const avgTime = attempted > 0 ? Math.round(totalTime / attempted) : 0;
+
+                screen.innerHTML = `
+                    <div class="max-w-3xl mx-auto space-y-8">
+                        <div class="text-center">
+                            <h2 class="text-3xl font-bold">Performance Analysis</h2>
+                        </div>
+                        <div class="grid md:grid-cols-2 gap-8">
+                            <div class="bg-slate-800 p-6 rounded-lg flex flex-col items-center justify-center">
+                                <h3 class="text-xl font-semibold mb-4">Accuracy</h3>
+                                <div class="relative w-48 h-48">
+                                    <canvas id="accuracy-chart"></canvas>
+                                    <div class="absolute inset-0 flex items-center justify-center text-4xl font-bold">${accuracy}%</div>
+                                </div>
+                            </div>
+                            <div class="bg-slate-800 p-6 rounded-lg">
+                                <h3 class="text-xl font-semibold mb-4">Key Metrics</h3>
+                                <div class="space-y-4 text-lg">
+                                    <div class="flex justify-between items-center"><span class="text-slate-400">Total Questions:</span> <span class="font-semibold">${totalQuestions}</span></div>
+                                    <div class="flex justify-between items-center"><span class="text-slate-400">Attempted:</span> <span class="font-semibold">${attempted}</span></div>
+                                    <div class="flex justify-between items-center"><span class="text-slate-400">Total Time:</span> <span class="font-semibold">${this.formatTime(totalTime, false)}</span></div>
+                                    <div class="flex justify-between items-center"><span class="text-slate-400">Avg Time/Question:</span> <span class="font-semibold">${this.formatTime(avgTime, false)}</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-slate-800 p-6 rounded-lg">
+                             <h3 class="text-xl font-semibold mb-4">Detailed Breakdown</h3>
+                             <div class="grid grid-cols-3 gap-4 text-center">
+                                <div>
+                                    <p class="flex items-center justify-center gap-2 text-green-400 font-bold"><i data-lucide="check-circle-2"></i> Right</p>
+                                    <p class="text-3xl font-bold mt-1">${correct}</p>
+                                    <p class="text-sm text-slate-400">${totalQuestions > 0 ? Math.round(correct/totalQuestions * 100) : 0}% of total</p>
+                                </div>
+                                <div>
+                                    <p class="flex items-center justify-center gap-2 text-red-400 font-bold"><i data-lucide="x-circle"></i> Wrong</p>
+                                    <p class="text-3xl font-bold mt-1">${wrong}</p>
+                                    <p class="text-sm text-slate-400">${totalQuestions > 0 ? Math.round(wrong/totalQuestions * 100) : 0}% of total</p>
+                                </div>
+                                <div>
+                                    <p class="flex items-center justify-center gap-2 text-yellow-400 font-bold"><i data-lucide="skip-forward"></i> Skipped</p>
+                                    <p class="text-3xl font-bold mt-1">${skipped}</p>
+                                    <p class="text-sm text-slate-400">${totalQuestions > 0 ? Math.round(skipped/totalQuestions * 100) : 0}% of total</p>
+                                </div>
+                             </div>
+                        </div>
+                         <div class="bg-slate-800 p-6 rounded-lg">
+                            <h3 class="text-xl font-semibold mb-2">Session Notes (optional)</h3>
+                            <textarea id="session-notes" class="w-full bg-slate-700 p-3 rounded-md h-24" placeholder="How did this session go?"></textarea>
+                        </div>
+                        <div class="text-center">
+                            <button onclick="app.saveFullSession()" class="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-md text-lg font-semibold">Save Session</button>
+                        </div>
+                    </div>
+                `;
+                this.createAccuracyChart(accuracy);
+                lucide.createIcons();
+            },
+            // ...existing code...
+renderReportsScreen() {
+    this.showScreen('reports-screen');
+    const screen = document.getElementById('reports-screen');
+
+    // --- PERIOD TOGGLE LOGIC ---
+    // Default to 'today', but keep in app state for toggling
+    if (!this.state.reports.period) this.state.reports.period = 'today';
+    const period = this.state.reports.period;
+
+    // Get filtered sessions based on selected period
+    const now = new Date();
+    let sessions;
+    let periodLabel = '';
+    if (period === 'today') {
+        const todayStr = now.toLocaleDateString('en-CA');
+        sessions = this.state.data.sessions.filter(s => new Date(s.date).toLocaleDateString('en-CA') === todayStr);
+        periodLabel = ' (Today)';
+    } else if (period === 'week') {
+        const weekAgo = new Date(now);
+        weekAgo.setDate(now.getDate() - 6); // last 7 days including today
+        sessions = this.state.data.sessions.filter(s => {
+            const d = new Date(s.date);
+            return d >= weekAgo && d <= now;
+        });
+        periodLabel = ' (Last 7 Days)';
+    } else if (period === 'month') {
+        const monthAgo = new Date(now);
+        monthAgo.setDate(now.getDate() - 29); // last 30 days including today
+        sessions = this.state.data.sessions.filter(s => {
+            const d = new Date(s.date);
+            return d >= monthAgo && d <= now;
+        });
+        periodLabel = ' (Last 30 Days)';
+    } else {
+        sessions = this.state.data.sessions;
+        periodLabel = ' (All Time)';
+    }
+
+    // Calculate stats
+    const totalSessions = sessions.length;
+    const totalQuestions = sessions.reduce((acc, s) => acc + s.log.length, 0);
+    const totalTime = sessions.reduce((acc, s) => acc + s.log.reduce((t, q) => t + q.time, 0), 0);
+    const totalAttempted = sessions.reduce((acc, s) => acc + s.log.filter(q => q.result !== 'skipped').length, 0);
+    const totalCorrect = sessions.reduce((acc, s) => acc + s.log.filter(q => q.result === 'correct').length, 0);
+    const avgAccuracy = totalAttempted > 0 ? Math.round((totalCorrect / totalAttempted) * 100) : 0;
+
+    // Render UI
+    screen.innerHTML = `
+        <div class="max-w-5xl mx-auto space-y-8">
+            <div class="flex items-center gap-2 text-slate-400 mb-4">
+                <i data-lucide="arrow-left" class="cursor-pointer" onclick="app.renderDashboard()"></i>
+                <h2 class="text-3xl font-bold">Progress Reports</h2>
+                <div class="ml-4 flex gap-2">
+                    <button class="px-3 py-1 rounded bg-slate-700 text-sm ${period === 'today' ? 'bg-slate-600 font-bold' : ''}" onclick="app.setReportPeriod('today')">Today</button>
+                    <button class="px-3 py-1 rounded bg-slate-700 text-sm ${period === 'week' ? 'bg-slate-600 font-bold' : ''}" onclick="app.setReportPeriod('week')">Week</button>
+                    <button class="px-3 py-1 rounded bg-slate-700 text-sm ${period === 'month' ? 'bg-slate-600 font-bold' : ''}" onclick="app.setReportPeriod('month')">Month</button>
+                    <button class="px-3 py-1 rounded bg-slate-700 text-sm ${period === 'all' ? 'bg-slate-600 font-bold' : ''}" onclick="app.setReportPeriod('all')">All Time</button>
+                </div>
+            </div>
+            
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-slate-800 p-4 rounded-lg"><p class="text-sm text-slate-400">Total Sessions${periodLabel}</p><p class="text-3xl font-bold">${totalSessions}</p></div>
+                <div class="bg-slate-800 p-4 rounded-lg"><p class="text-sm text-slate-400">Questions Practiced${periodLabel}</p><p class="text-3xl font-bold">${totalQuestions}</p></div>
+                <div class="bg-slate-800 p-4 rounded-lg"><p class="text-sm text-slate-400">Total Practice Time${periodLabel}</p><p class="text-3xl font-bold">${this.formatTime(totalTime, false)}</p></div>
+                <div class="bg-slate-800 p-4 rounded-lg"><p class="text-sm text-slate-400">Average Accuracy${periodLabel}</p><p class="text-3xl font-bold">${avgAccuracy}%</p></div>
+            </div>
+
+            <div class="bg-slate-800 p-6 rounded-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold">Practice History</h3>
+                    <div id="chart-toggle" class="flex bg-slate-700 rounded-md p-1 text-sm">
+                        <button data-period="daily" class="px-3 py-1 rounded bg-slate-600">Daily</button>
+                        <button data-period="weekly" class="px-3 py-1 rounded">Weekly</button>
+                        <button data-period="monthly" class="px-3 py-1 rounded">Monthly</button>
+                    </div>
+                </div>
+                <canvas id="practice-chart"></canvas>
+            </div>
+            
+            <div class="bg-slate-800 p-6 rounded-lg">
+                 <h3 class="text-xl font-semibold mb-4">Recent Sessions</h3>
+                 <div id="recent-sessions-list" class="space-y-2"></div>
+            </div>
+        </div>
+    `;
+    this.createPracticeChart('daily');
+    this.renderRecentSessions();
+
+    document.getElementById('chart-toggle').addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON') {
+            const period = e.target.dataset.period;
+            document.querySelectorAll('#chart-toggle button').forEach(b => b.classList.remove('bg-slate-600'));
+            e.target.classList.add('bg-slate-600');
+            this.createPracticeChart(period);
+        }
+    });
+
+    lucide.createIcons();
+},
+
+setReportPeriod(period) {
+    this.state.reports.period = period;
+    this.renderReportsScreen();
+},
+// ...existing code...
+            renderRecentSessions() {
+                const list = document.getElementById('recent-sessions-list');
+                const recent = [...this.state.data.sessions].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+                
+                if (recent.length === 0) {
+                    list.innerHTML = '<p class="text-slate-500">No sessions recorded yet.</p>';
+                    return;
+                }
+
+                list.innerHTML = recent.map(session => {
+                    const accuracy = session.log.filter(q => q.result !== 'skipped').length > 0 ? 
+                        Math.round(session.log.filter(q => q.result === 'correct').length / session.log.filter(q => q.result !== 'skipped').length * 100) : 0;
+                    return `
+                        <div class="bg-slate-700/50 p-3 rounded-md flex justify-between items-center">
+                            <div>
+                                <p class="font-semibold">${session.name}</p>
+                                <p class="text-sm text-slate-400">${this.getFolderPathString(session.folderId)} &bull; ${new Date(session.date).toLocaleDateString()}</p>
+                            </div>
+                            <div class="text-right">
+                                <p>${session.log.length} questions</p>
+                                <p class="text-sm font-semibold ${accuracy >= 80 ? 'text-green-400' : accuracy >= 50 ? 'text-yellow-400' : 'text-red-400'}">${accuracy}% accuracy</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            },
+
+            // --- MODAL & MENU MANAGEMENT ---
+            showModal(content) {
+                document.getElementById('modal-content').innerHTML = content;
+                document.getElementById('modal-backdrop').classList.remove('hidden');
+                document.getElementById('modal-backdrop').classList.add('flex');
+            },
+            closeModal() {
+                const backdrop = document.getElementById('modal-backdrop');
+                backdrop.classList.add('fade-out');
+                setTimeout(() => {
+                    backdrop.classList.add('hidden');
+                    backdrop.classList.remove('flex', 'fade-out');
+                }, 300);
+            },
+            toggleOptionsMenu(event, type, id) {
+                event.stopPropagation();
+                this.closeAllMenus();
+                const menu = document.getElementById(`options-${type}-${id}`);
+                menu.classList.toggle('show');
+            },
+            closeAllMenus() {
+                document.querySelectorAll('.options-menu').forEach(menu => menu.classList.remove('show'));
+            },
+            
+            // --- MODAL CONTENT PROVIDERS ---
+            showNewFolderModal() { this.showModal(this.getNewFolderModalContent()); },
+            showNewSessionModal(folderId) { this.showModal(this.getNewSessionModalContent(folderId)); document.getElementById('new-session-name').focus(); },
+            showRenameModal(type, id, currentName) { this.showModal(this.getRenameModalContent(type, id, currentName)); document.getElementById('rename-input').focus(); },
+            showDeleteModal(type, id, name) { this.showModal(this.getDeleteModalContent(type, id, name)); },
+
+            getNewFolderModalContent() { /* ... returns HTML string ... */ 
+                return `
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold mb-4">Create New Folder</h3>
+                        <input id="new-folder-name" type="text" class="w-full bg-slate-700 p-2 rounded-md mb-4" placeholder="Enter folder name" onkeydown="if(event.key==='Enter') app.createNewFolder()">
+                        <div class="flex justify-end gap-2">
+                            <button onclick="app.closeModal()" class="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-md">Cancel</button>
+                            <button onclick="app.createNewFolder()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-md">Create</button>
+                        </div>
+                    </div>`;
+            },
+            getNewSessionModalContent(folderId) { /* ... returns HTML string ... */ 
+                const pathString = this.getFolderPathString(folderId);
+                return `
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold mb-4">Start Practice Session</h3>
+                        <div class="space-y-4">
+                            <div><label class="text-sm text-slate-400">Session Name</label><input id="new-session-name" type="text" class="w-full bg-slate-700 p-2 rounded-md mt-1" placeholder="e.g., Chapter 5 Problems"></div>
+                            <div><label class="text-sm text-slate-400">Target Questions</label><input id="new-session-target" type="number" value="20" class="w-full bg-slate-700 p-2 rounded-md mt-1"></div>
+                            <p class="text-xs text-slate-500">Session will be saved in: ${pathString}</p>
+                        </div>
+                        <div class="flex justify-end gap-2 mt-6">
+                            <button onclick="app.closeModal()" class="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-md">Cancel</button>
+                            <button onclick="app.createNewSession(${folderId})" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-md">Start Session</button>
+                        </div>
+                    </div>`;
+            },
+            getRenameModalContent(type, id, currentName) { /* ... returns HTML string ... */ 
+                return `
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold mb-4">Rename ${type}</h3>
+                        <input id="rename-input" type="text" value="${currentName}" class="w-full bg-slate-700 p-2 rounded-md mb-4" onkeydown="if(event.key==='Enter') app.renameItem('${type}', ${id})">
+                        <div class="flex justify-end gap-2">
+                            <button onclick="app.closeModal()" class="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-md">Cancel</button>
+                            <button onclick="app.renameItem('${type}', ${id})" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-md">Rename</button>
+                        </div>
+                    </div>`;
+            },
+            getDeleteModalContent(type, id, name) { /* ... returns HTML string ... */ 
+                const itemType = type.charAt(0).toUpperCase() + type.slice(1);
+                const warning = type === 'folder' ? 'This will also delete all sub-folders and sessions inside.' : '';
+                return `
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold mb-2">Delete ${itemType}</h3>
+                        <p class="mb-4">Are you sure you want to delete "${name}"?</p>
+                        <p class="text-sm text-amber-400 mb-4">${warning}</p>
+                        <div class="flex justify-end gap-2">
+                            <button onclick="app.closeModal()" class="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-md">Cancel</button>
+                            <button onclick="app.deleteItem('${type}', ${id})" class="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-md">Delete</button>
+                        </div>
+                    </div>`;
+            },
+
+            // --- CORE LOGIC (CRUD) ---
+            createNewFolder() {
+                const name = document.getElementById('new-folder-name').value.trim();
+                if (!name) return this.showToast('Folder name cannot be empty.', 'error');
+                const newFolder = {
+                    id: Date.now(), name,
+                    parentId: this.state.currentPath.length > 0 ? this.state.currentPath[this.state.currentPath.length - 1] : null
+                };
+                this.state.data.folders.push(newFolder);
+                this.saveData();
+                this.renderDashboard();
+                this.closeModal();
+                this.showToast('Folder created.');
+            },
+            renameItem(type, id) {
+                const newName = document.getElementById('rename-input').value.trim();
+                if (!newName) return this.showToast('Name cannot be empty.', 'error');
+                const collection = type === 'folder' ? this.state.data.folders : this.state.data.sessions;
+                const item = collection.find(i => i.id === id);
+                if (item) {
+                    item.name = newName;
+                    this.saveData();
+                    this.renderDashboard();
+                    this.closeModal();
+                    this.showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} renamed.`);
+                }
+            },
+            deleteItem(type, id) {
+                if (type === 'folder') {
+                    let foldersToDelete = [id];
+                    let i = 0;
+                    while (i < foldersToDelete.length) {
+                        const parentId = foldersToDelete[i];
+                        const children = this.state.data.folders.filter(f => f.parentId === parentId);
+                        foldersToDelete.push(...children.map(c => c.id));
+                        i++;
+                    }
+                    this.state.data.folders = this.state.data.folders.filter(f => !foldersToDelete.includes(f.id));
+                    this.state.data.sessions = this.state.data.sessions.filter(s => !foldersToDelete.includes(s.folderId));
+                } else {
+                    this.state.data.sessions = this.state.data.sessions.filter(s => s.id !== id);
+                }
+                this.saveData();
+                this.renderDashboard();
+                this.closeModal();
+                this.showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted.`);
+            },
+            // --- SESSION LOGIC ---
+            createNewSession(folderId) {
+                const name = document.getElementById('new-session-name').value.trim() || 'Quick Session';
+                const target = parseInt(document.getElementById('new-session-target').value) || 10;
+                
+                this.state.activeSession = {
+                    id: Date.now(), name, target, folderId,
+                    date: new Date().toISOString(),
+                    status: 'pending', timer: 0, log: []
+                };
+                this.closeModal();
+                this.renderSessionScreen();
+            },
+            startQuestion() {
+                const session = this.state.activeSession;
+                if (session.status !== 'pending') return;
+
+                session.status = 'running';
+                this.state.questionStartTime = Date.now();
+                this.state.timerInterval = setInterval(() => {
+                    session.timer = Date.now() - this.state.questionStartTime;
+                    this.renderSessionScreen();
+                }, 10);
+            },
+            stopQuestion() {
+                const session = this.state.activeSession;
+                if (session.status !== 'running') return;
+
+                clearInterval(this.state.timerInterval);
+                session.timer = Date.now() - this.state.questionStartTime;
+                session.status = 'paused';
+                this.renderSessionScreen();
+            },
+            logResult(result) {
+                const session = this.state.activeSession;
+                session.log.push({ result, time: session.timer });
+                
+                if (session.log.length >= session.target || document.getElementById('end-session-checkbox')?.checked) {
+                    this.endSession();
+                } else {
+                    session.status = 'pending';
+                    session.timer = 0;
+                    this.renderSessionScreen();
+                }
+            },
+            endSession() {
+                clearInterval(this.state.timerInterval);
+                this.state.activeSession.status = 'finished';
+                this.renderAnalysisScreen();
+            },
+            confirmEndSession() {
+                if (confirm('Are you sure you want to end this session? Progress will be saved.')) {
+                    this.endSession();
+                }
+            },
+            saveFullSession() {
+    const notes = document.getElementById('session-notes').value;
+    this.state.activeSession.notes = notes;
+    this.state.data.sessions.push(this.state.activeSession);
+    this.saveData();
+    this.state.activeSession = null;
+    this.renderDashboard();
+    this.showToast('Session saved!');
++   // Automatically export JSON after saving session
++   this.exportData('json');
+},
+            handleKeyPress(e) {
+                if (!this.state.activeSession) return;
+                const session = this.state.activeSession;
+
+                if (e.code === 'Space' && (session.status === 'pending' || session.status === 'running')) {
+                    e.preventDefault();
+                    if (session.status === 'pending') this.startQuestion();
+                    else if (session.status === 'running') this.stopQuestion();
+                } else if (session.status === 'paused') {
+                    if (e.key.toLowerCase() === 'r') this.logResult('correct');
+                    if (e.key.toLowerCase() === 'w') this.logResult('wrong');
+                    if (e.key.toLowerCase() === 'l') this.logResult('skipped');
+                }
+            },
+
+            // --- UTILITIES ---
+            formatTime(ms, showMilliseconds = true) {
+                const totalSeconds = Math.floor(ms / 1000);
+                const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+                const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+                if (!showMilliseconds) return `${minutes}:${seconds}`;
+                const milliseconds = Math.floor((ms % 1000) / 10).toString().padStart(2, '0');
+                return `${minutes}:${seconds}:${milliseconds}`;
+            },
+getTodayQuestionsCount() {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    let count = 0;
+    this.state.data.sessions.forEach(session => {
+        const sessionDateStr = new Date(session.date).toLocaleDateString('en-CA');
+        if (sessionDateStr === todayStr) {
+            count += session.log.length;
+        }
+    });
+    return count;
+},
+// ...existing code...
+getFolderPathString(folderId = null) {
+    if (folderId === undefined) {
+        folderId = this.state.currentPath.length > 0 ? this.state.currentPath[this.state.currentPath.length - 1] : null;
+    }
+    if (folderId === null) return '/';
+    
+    let path = '';
+    let current = this.state.data.folders.find(f => f.id === folderId);
+    while(current) {
+        path = `/${current.name}${path}`;
+        current = this.state.data.folders.find(f => f.id === current.parentId);
+    }
+    return path || '/';
+},
+            showToast(message, type = 'success') {
+                const toast = document.getElementById('toast');
+                toast.textContent = message;
+                toast.className = `fixed bottom-5 right-5 text-white px-6 py-3 rounded-lg shadow-lg transition-transform duration-500 ${type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`;
+                toast.classList.remove('translate-x-[120%]');
+                setTimeout(() => {
+                    toast.classList.add('translate-x-[120%]');
+                }, 3000);
+            },
+
+            // --- CHARTING ---
+            createAccuracyChart(accuracy) {
+                const ctx = document.getElementById('accuracy-chart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: { datasets: [{ data: [accuracy, 100 - accuracy], backgroundColor: ['#10b981', '#475569'], borderWidth: 0, borderRadius: 5 }] },
+                    options: { responsive: true, cutout: '80%', plugins: { tooltip: { enabled: false }, legend: { display: false } } }
+                });
+            },
+            createPracticeChart(period) {
+    if (this.state.reports.chartInstance) this.state.reports.chartInstance.destroy();
+    const ctx = document.getElementById('practice-chart').getContext('2d');
+
+    // Get top-level folders
+    const topFolders = this.state.data.folders.filter(f => f.parentId === null);
+
+    // Prepare labels (dates) for the selected period
+    let startDate, timeUnit;
+    switch(period) {
+        case 'weekly':
+            timeUnit = 'week';
+            startDate = new Date();
+            startDate.setDate(startDate.getDate() - 7 * 12);
+            break;
+        case 'monthly':
+            timeUnit = 'month';
+            startDate = new Date();
+            startDate.setMonth(startDate.getMonth() - 12);
+            break;
+        default:
+            timeUnit = 'day';
+            startDate = new Date();
+            startDate.setDate(startDate.getDate() - 30);
+    }
+
+    // Build a list of all relevant dates for the x-axis
+    const dateSet = new Set();
+    this.state.data.sessions.forEach(session => {
+        const date = new Date(session.date);
+        if (date >= startDate) {
+            let key;
+            if (period === 'weekly') {
+                const weekStart = new Date(date);
+                weekStart.setDate(date.getDate() - date.getDay());
+                key = weekStart.toLocaleDateString('en-CA');
+            } else if (period === 'monthly') {
+                key = new Date(date.getFullYear(), date.getMonth(), 1).toLocaleDateString('en-CA');
+            } else {
+                key = date.toLocaleDateString('en-CA');
+            }
+            dateSet.add(key);
+        }
+    });
+    const labels = Array.from(dateSet).sort((a, b) => new Date(a) - new Date(b));
+
+    // For each folder, build a dataset of questions practiced per date
+    const datasets = topFolders.map((folder, idx) => {
+        // Get all sessions in this folder and its subfolders
+        function getAllSessions(folderId) {
+            const directSessions = app.state.data.sessions.filter(s => s.folderId === folderId);
+            const subfolders = app.state.data.folders.filter(f => f.parentId === folderId);
+            let allSessions = [...directSessions];
+            subfolders.forEach(sub => {
+                allSessions = allSessions.concat(getAllSessions(sub.id));
+            });
+            return allSessions;
+        }
+        const folderSessions = getAllSessions(folder.id);
+
+        // Map date -> total questions
+        const dateMap = {};
+        labels.forEach(date => { dateMap[date] = 0; });
+        folderSessions.forEach(session => {
+            let key;
+            const date = new Date(session.date);
+            if (period === 'weekly') {
+                const weekStart = new Date(date);
+                weekStart.setDate(date.getDate() - date.getDay());
+                key = weekStart.toLocaleDateString('en-CA');
+            } else if (period === 'monthly') {
+                key = new Date(date.getFullYear(), date.getMonth(), 1).toLocaleDateString('en-CA');
+            } else {
+                key = date.toLocaleDateString('en-CA');
+            }
+            if (dateMap[key] !== undefined) {
+                dateMap[key] += session.log.length;
+            }
+        });
+
+        return {
+            label: folder.name,
+            data: labels.map(date => dateMap[date]),
+            backgroundColor: folderColors[idx % folderColors.length],
+            borderRadius: 4
+        };
+    });
+
+    // Create grouped bar chart
+    this.state.reports.chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets },
+        options: {
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(100, 116, 139, 0.2)' }, ticks: { color: '#94a3b8', precision: 0 } },
+                x: { type: 'time', time: { unit: timeUnit, displayFormats: { 'day': 'MMM d', 'week': 'MMM d', 'month': 'MMM yyyy' } }, grid: { display: false }, ticks: { color: '#94a3b8' } }
+            },
+            plugins: { legend: { display: true } }
+        }
+    });
+},
+            getChartData(period) {
+                const sessions = this.state.data.sessions;
+                const dataMap = new Map();
+                let timeUnit, startDate;
+
+                switch(period) {
+                    case 'weekly':
+                        timeUnit = 'week';
+                        startDate = new Date();
+                        startDate.setDate(startDate.getDate() - 7 * 12); // Last 12 weeks
+                        break;
+                    case 'monthly':
+                        timeUnit = 'month';
+                        startDate = new Date();
+                        startDate.setMonth(startDate.getMonth() - 12); // Last 12 months
+                        break;
+                    default: // daily
+                        timeUnit = 'day';
+                        startDate = new Date();
+                        startDate.setDate(startDate.getDate() - 30); // Last 30 days
+                }
+
+                // ...existing code...
+sessions.forEach(session => {
+    const date = new Date(session.date);
+    if (date >= startDate) {
+        let key;
+        if (period === 'weekly') {
+            // Start of week (Sunday)
+            const weekStart = new Date(date);
+            weekStart.setDate(date.getDate() - date.getDay());
+            key = weekStart.toLocaleDateString('en-CA');
+        } else if (period === 'monthly') {
+            // First day of month
+            key = new Date(date.getFullYear(), date.getMonth(), 1).toLocaleDateString('en-CA');
+        } else {
+            // Daily
+            key = date.toLocaleDateString('en-CA');
+        }
+        dataMap.set(key, (dataMap.get(key) || 0) + session.log.length);
+    }
+});
+// ...existing code...
+                
+                const sortedData = [...dataMap.entries()].sort((a, b) => new Date(a[0]) - new Date(b[0]));
+                return {
+                    labels: sortedData.map(entry => entry[0]),
+                    data: sortedData.map(entry => entry[1]),
+                    timeUnit
+                };
+            },
+
+            // --- IMPORT/EXPORT ---
+            exportData(format) {
+                if (format === 'json') {
+                    const dataStr = JSON.stringify(this.state.data, null, 2);
+                    const blob = new Blob([dataStr], { type: 'application/json' });
+                    this.downloadBlob(blob, 'problem-tracker-data.json');
+                } else if (format === 'csv') {
+                    this.exportToCsv();
+                }
+            },
+            exportToCsv() {
+                let csvContent = "data:text/csv;charset=utf-8,";
+                csvContent += "Session ID,Session Name,Date,Folder Path,Question Number,Result,Time (s)\n";
+
+                this.state.data.sessions.forEach(session => {
+                    const folderPath = this.getFolderPathString(session.folderId);
+                    session.log.forEach((q, index) => {
+                        const row = [session.id, `"${session.name}"`, session.date, `"${folderPath}"`, index + 1, q.result, (q.time / 1000).toFixed(2)].join(',');
+                        csvContent += row + "\n";
+                    });
+                });
+
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "problem-tracker-data.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            },
+            importData(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        if (importedData.folders && importedData.sessions) {
+                            this.state.data = importedData;
+                            this.saveData();
+                            this.renderDashboard();
+                            this.showToast('Data imported successfully!');
+                        } else {
+                            throw new Error('Invalid file format');
+                        }
+                    } catch (error) {
+                        this.showToast('Failed to import data. Invalid file.', 'error');
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = ''; // Reset input
+            },
+            downloadBlob(blob, filename) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => app.init());
+    </script>
+</body>
+</html>
